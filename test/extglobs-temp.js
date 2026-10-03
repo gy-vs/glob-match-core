@@ -782,6 +782,59 @@ describe('extglobs', () => {
       assert(!isMatch('aac', '*(@(a))b@(c)', { windows: true }));
     });
 
+    it('should keep every branch of a nested multi-branch extglob (bash semantics)', () => {
+      // `+(*(a)|*(b))` matches a name built from any number of all-a or
+      // all-b segments; a previous regression compiled it to just `a*`.
+      assert(isMatch('a', '+(*(a)|*(b))', { windows: true }));
+      assert(isMatch('b', '+(*(a)|*(b))', { windows: true }));
+      assert(isMatch('ab', '+(*(a)|*(b))', { windows: true }));
+      assert(isMatch('ba', '+(*(a)|*(b))', { windows: true }));
+      assert(isMatch('aabb', '+(*(a)|*(b))', { windows: true }));
+      assert(!isMatch('c', '+(*(a)|*(b))', { windows: true }));
+      assert(!isMatch('ac', '+(*(a)|*(b))', { windows: true }));
+
+      assert(isMatch('abc', '+(*(a)|*(b)|*(c))', { windows: true }));
+      assert(isMatch('cab', '+(*(a)|*(b)|*(c))', { windows: true }));
+      assert(!isMatch('zzz', '+(*(a)|*(b)|*(c))', { windows: true }));
+
+      // `*(*(a)|c)`: a-runs and literal `c` segments.
+      assert(isMatch('a', '*(*(a)|c)', { windows: true }));
+      assert(isMatch('c', '*(*(a)|c)', { windows: true }));
+      assert(isMatch('cc', '*(*(a)|c)', { windows: true }));
+      assert(isMatch('ac', '*(*(a)|c)', { windows: true }));
+      assert(isMatch('ca', '*(*(a)|c)', { windows: true }));
+      assert(!isMatch('x', '*(*(a)|c)', { windows: true }));
+
+      // Plain word mixed with a nested star run.
+      assert(isMatch('a', '+(*(a)|cd)', { windows: true }));
+      assert(isMatch('cd', '+(*(a)|cd)', { windows: true }));
+      assert(isMatch('acd', '+(*(a)|cd)', { windows: true }));
+      assert(isMatch('cda', '+(*(a)|cd)', { windows: true }));
+      assert(isMatch('cdcd', '+(*(a)|cd)', { windows: true }));
+      assert(!isMatch('cdc', '+(*(a)|cd)', { windows: true }));
+      assert(!isMatch('c', '+(*(a)|cd)', { windows: true }));
+      assert(!isMatch('x', '+(*(a)|cd)', { windows: true }));
+
+      // Multi-character star runs.
+      assert(isMatch('ab', '+(*(ab)|*(cd))', { windows: true }));
+      assert(isMatch('abcd', '+(*(ab)|*(cd))', { windows: true }));
+      assert(isMatch('cdab', '+(*(ab)|*(cd))', { windows: true }));
+      assert(!isMatch('aba', '+(*(ab)|*(cd))', { windows: true }));
+
+      assert(isMatch('foo', '*(*(f)|*(o))', { windows: true }));
+      assert(isMatch('ofo', '*(*(f)|*(o))', { windows: true }));
+      assert(!isMatch('x', '*(*(f)|*(o))', { windows: true }));
+
+      // A lone `*(abc)` only matches repeated `abc` blocks, even next to a
+      // plain branch: it must not match arbitrary `[abc]*` runs.
+      assert(isMatch('abc', '*(x|*(abc))', { windows: true }));
+      assert(isMatch('x', '*(x|*(abc))', { windows: true }));
+      assert(isMatch('xx', '*(x|*(abc))', { windows: true }));
+      assert(isMatch('xabc', '*(x|*(abc))', { windows: true }));
+      assert(!isMatch('a', '*(x|*(abc))', { windows: true }));
+      assert(!isMatch('ab', '*(x|*(abc))', { windows: true }));
+    });
+
   });
 
   describe('other', () => {

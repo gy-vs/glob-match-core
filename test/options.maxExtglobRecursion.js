@@ -130,4 +130,134 @@ describe('options.maxExtglobRecursion', () => {
       )
     );
   });
+
+  it('should keep every branch of a nested multi-branch repeated extglob', () => {
+    // The reported regression: `+(*(a)|*(b))` was compiled to `a*`, silently
+    // dropping the second branch.
+    assert.strictEqual(
+      makeRe('+(*(a)|*(b))').source,
+      '^(?:(?=.)[ab]*)$'
+    );
+    assert.strictEqual(
+      makeRe('+(*(a)|*(b)|*(c))').source,
+      '^(?:(?=.)[abc]*)$'
+    );
+    assert.strictEqual(
+      makeRe('*(*(a)|c)').source,
+      '^(?:(?=.)a*(?:(?:c)a*)*)$'
+    );
+    assert.strictEqual(
+      makeRe('+(*(a)|cd)').source,
+      '^(?:(?=.)a*(?:(?:cd)a*)*)$'
+    );
+  });
+
+  it('should merge nested single-character star runs into a character class', () => {
+    assert.strictEqual(makeRe('*(*(a))').source, '^(?:(?=.)a*)$');
+    assert.strictEqual(makeRe('*(*(f)|*(o))').source, '^(?:(?=.)[fo]*)$');
+  });
+
+  it('should flatten a multi-character star run only against the run alphabet', () => {
+    // `*(ab)` next to single-character runs over the full alphabet is an
+    // unordered `[ab]*` run (matches `ba` as well as `ab`)...
+    assert.strictEqual(
+      makeRe('*(*(ab)|*(a)|*(b))').source,
+      '^(?:(?=.)[ab]*)$'
+    );
+
+    // ...but a lone `*(abc)` only matches repeated `abc` blocks, so it is kept
+    // as a fixed word next to `x` instead of flattening into `[abc]*`.
+    assert.strictEqual(
+      makeRe('*(x|*(abc))').source,
+      '^(?:(?=.)(?:abc|x)*)$'
+    );
+  });
+
+  it('should agree across makeRe, isMatch and picomatch() like bash', () => {
+    const pm = require('..');
+    const table = {
+      '+(*(a)|*(b))': {
+        a: true,
+        b: true,
+        ab: true,
+        ba: true,
+        aabb: true,
+        c: false,
+        ac: false
+      },
+      '*(*(a)|c)': {
+        a: true,
+        c: true,
+        cc: true,
+        ac: true,
+        ca: true,
+        x: false
+      },
+      '+(*(a)|cd)': {
+        a: true,
+        cd: true,
+        acd: true,
+        cda: true,
+        cdcd: true,
+        cdc: false,
+        c: false,
+        x: false
+      },
+      '*(*(f)|*(o))': {
+        foo: true,
+        ofo: true,
+        x: false
+      },
+      '+(*(ab)|*(cd))': {
+        ab: true,
+        abcd: true,
+        cdab: true,
+        aba: false
+      },
+      '*(x|*(abc))': {
+        abc: true,
+        x: true,
+        xx: true,
+        a: false,
+        ab: false
+      }
+    };
+
+    for (const [pattern, inputs] of Object.entries(table)) {
+      const regex = makeRe(pattern);
+      const matcher = pm(pattern);
+
+      for (const [input, expected] of Object.entries(inputs)) {
+        assert.strictEqual(
+          regex.test(input),
+          expected,
+          `makeRe(${pattern}) against ${input}`
+        );
+        assert.strictEqual(
+          isMatch(input, pattern),
+          expected,
+          `isMatch(${input}, ${pattern})`
+        );
+        assert.strictEqual(
+          matcher(input),
+          expected,
+          `picomatch(${pattern})(${input})`
+        );
+      }
+    }
+  });
+
+  it('should not flatten ambiguous repeated-character alternations', () => {
+    // A nested star run whose branches repeat the same character (`*(a|aa)`)
+    // would compile to an exponentially backtracking regex if flattened, so
+    // such extglobs stay literal instead.
+    assert.strictEqual(
+      makeRe('*(a|*(a|aa))').source,
+      '^(?:\\*\\(a\\|\\*\\(a\\|aa\\)\\))$'
+    );
+    assert.strictEqual(
+      makeRe('*(x|*(a|aa))').source,
+      '^(?:\\*\\(x\\|\\*\\(a\\|aa\\)\\))$'
+    );
+  });
 });
