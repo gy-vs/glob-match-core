@@ -17,4 +17,14 @@ describe('options.noextglob', () => {
     assert(!isMatch('azz', 'a+(z)', { noext: true }));
     assert(!isMatch('azzz', 'a+(z)', { noext: true }));
   });
+
+  it('should treat nested extglobs as literal characters', () => {
+    assert(isMatch('+(*(a)|*(b))', '+(*(a)|*(b))', { noextglob: true }));
+    assert(!isMatch('a', '+(*(a)|*(b))', { noextglob: true }));
+    assert(!isMatch('b', '+(*(a)|*(b))', { noextglob: true }));
+    assert(!isMatch('ab', '+(*(a)|*(b))', { noextglob: true }));
+
+    assert(isMatch('+(*(a)|*(b))', '+(*(a)|*(b))', { noext: true }));
+    assert(!isMatch('b', '+(*(a)|*(b))', { noext: true }));
+  });
 });

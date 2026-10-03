@@ -93,6 +93,88 @@ describe('options.maxExtglobRecursion', () => {
     assert(isMatch('fff', '*(*(f))'));
   });
 
+  it('should combine every branch of nested repeated extglobs with alternation', () => {
+    assert.strictEqual(
+      makeRe('+(*(a)|*(b))').source,
+      '^(?:(?=.)[ab]*)$'
+    );
+    assert.strictEqual(
+      makeRe('*(*(a)|c)').source,
+      '^(?:(?=.)[ac]*)$'
+    );
+    assert.strictEqual(
+      makeRe('+(*(a)|*(b)|*(c))').source,
+      '^(?:(?=.)[abc]*)$'
+    );
+    assert.strictEqual(
+      makeRe('*(*(a)|*(b))').source,
+      '^(?:(?=.)[ab]*)$'
+    );
+    assert.strictEqual(
+      makeRe('+(@(a)|*(b))').source,
+      '^(?:(?=.)[ab]*)$'
+    );
+    assert.strictEqual(
+      makeRe('+(a|*(b))').source,
+      '^(?:(?=.)[ab]*)$'
+    );
+    assert.strictEqual(
+      makeRe('+(*(a)|*(a))').source,
+      '^(?:(?=.)a*)$'
+    );
+
+    assert(isMatch('a', '+(*(a)|*(b))'));
+    assert(isMatch('b', '+(*(a)|*(b))'));
+    assert(isMatch('ab', '+(*(a)|*(b))'));
+    assert(isMatch('ba', '+(*(a)|*(b))'));
+    assert(isMatch('aabb', '+(*(a)|*(b))'));
+    assert(!isMatch('c', '+(*(a)|*(b))'));
+    assert(!isMatch('abc', '+(*(a)|*(b))'));
+
+    assert(isMatch('c', '*(*(a)|c)'));
+    assert(isMatch('cca', '*(*(a)|c)'));
+    assert(!isMatch('b', '*(*(a)|c)'));
+
+    assert(isMatch('abc', '+(*(a)|*(b)|*(c))'));
+    assert(!isMatch('abd', '+(*(a)|*(b)|*(c))'));
+  });
+
+  it('should combine nested repeated extglob branches inside larger patterns', () => {
+    assert.strictEqual(
+      makeRe('x+(*(a)|*(b))y').source,
+      '^(?:x[ab]*y)$'
+    );
+    assert.strictEqual(
+      makeRe('pre*(*(a)|*(b))post').source,
+      '^(?:pre[ab]*post)$'
+    );
+    assert.strictEqual(
+      makeRe('foo/+(*(a)|*(b))/bar').source,
+      '^(?:foo\\/[ab]*\\/bar)$'
+    );
+
+    assert(isMatch('xy', 'x+(*(a)|*(b))y'));
+    assert(isMatch('xaby', 'x+(*(a)|*(b))y'));
+    assert(!isMatch('xcy', 'x+(*(a)|*(b))y'));
+    assert(isMatch('preabpost', 'pre*(*(a)|*(b))post'));
+    assert(isMatch('foo/ab/bar', 'foo/+(*(a)|*(b))/bar'));
+    assert(!isMatch('foo/ac/bar', 'foo/+(*(a)|*(b))/bar'));
+  });
+
+  it('should literalize nested extglobs when a branch is not a single-character unit', () => {
+    assert.strictEqual(
+      makeRe('+(*(a)|foo)').source,
+      '^(?:\\+\\(\\*\\(a\\)\\|foo\\))$'
+    );
+    assert.strictEqual(
+      makeRe('+(*(a)|*(bc))').source,
+      '^(?:\\+\\(\\*\\(a\\)\\|\\*\\(bc\\)\\))$'
+    );
+
+    assert(isMatch('+(*(a)|foo)', '+(*(a)|foo)'));
+    assert(!isMatch('aa', '+(*(a)|foo)'));
+  });
+
   it('should preserve capture behavior for rewritten repeated extglobs', () => {
     const embedded = makeRe('foo/+(a|aa)/bar', { capture: true });
     assert.strictEqual(embedded.source, '^(?:foo\\/\\+\\(a\\|aa\\)\\/bar)$');

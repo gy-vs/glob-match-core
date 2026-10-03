@@ -701,6 +701,138 @@ describe('extglobs', () => {
     assert(!isMatch('a.abcd', '*.!(a|b|c)*'));
   });
 
+  describe('nested repeated extglobs with alternation', () => {
+    it('should keep every branch of +(*(a)|*(b))', () => {
+      assert.strictEqual(makeRe('+(*(a)|*(b))').source, '^(?:(?=.)[ab]*)$');
+
+      assert(isMatch('a', '+(*(a)|*(b))'));
+      assert(isMatch('b', '+(*(a)|*(b))'));
+      assert(isMatch('ab', '+(*(a)|*(b))'));
+      assert(isMatch('ba', '+(*(a)|*(b))'));
+      assert(isMatch('aabb', '+(*(a)|*(b))'));
+      assert(isMatch('aa', '+(*(a)|*(b))'));
+      assert(isMatch('bbb', '+(*(a)|*(b))'));
+      assert(!isMatch('', '+(*(a)|*(b))'));
+      assert(!isMatch('x', '+(*(a)|*(b))'));
+      assert(!isMatch('abc', '+(*(a)|*(b))'));
+    });
+
+    it('should keep every branch of *(*(a)|c)', () => {
+      assert.strictEqual(makeRe('*(*(a)|c)').source, '^(?:(?=.)[ac]*)$');
+
+      assert(isMatch('a', '*(*(a)|c)'));
+      assert(isMatch('c', '*(*(a)|c)'));
+      assert(isMatch('aa', '*(*(a)|c)'));
+      assert(isMatch('cc', '*(*(a)|c)'));
+      assert(isMatch('ac', '*(*(a)|c)'));
+      assert(isMatch('cca', '*(*(a)|c)'));
+      assert(isMatch('acc', '*(*(a)|c)'));
+      assert(!isMatch('', '*(*(a)|c)'));
+      assert(!isMatch('b', '*(*(a)|c)'));
+    });
+
+    it('should combine more than two nested branches', () => {
+      assert.strictEqual(makeRe('+(*(a)|*(b)|*(c))').source, '^(?:(?=.)[abc]*)$');
+
+      assert(isMatch('a', '+(*(a)|*(b)|*(c))'));
+      assert(isMatch('b', '+(*(a)|*(b)|*(c))'));
+      assert(isMatch('c', '+(*(a)|*(b)|*(c))'));
+      assert(isMatch('abc', '+(*(a)|*(b)|*(c))'));
+      assert(isMatch('cabbc', '+(*(a)|*(b)|*(c))'));
+      assert(!isMatch('d', '+(*(a)|*(b)|*(c))'));
+      assert(!isMatch('abd', '+(*(a)|*(b)|*(c))'));
+    });
+
+    it('should handle star-star nesting', () => {
+      assert.strictEqual(makeRe('*(*(a)|*(b))').source, '^(?:(?=.)[ab]*)$');
+
+      assert(isMatch('a', '*(*(a)|*(b))'));
+      assert(isMatch('b', '*(*(a)|*(b))'));
+      assert(isMatch('abba', '*(*(a)|*(b))'));
+      assert(!isMatch('', '*(*(a)|*(b))'));
+      assert(!isMatch('c', '*(*(a)|*(b))'));
+    });
+
+    it('should combine @(...) branches with *(...) branches', () => {
+      assert.strictEqual(makeRe('+(@(a)|*(b))').source, '^(?:(?=.)[ab]*)$');
+
+      assert(isMatch('a', '+(@(a)|*(b))'));
+      assert(isMatch('b', '+(@(a)|*(b))'));
+      assert(isMatch('ab', '+(@(a)|*(b))'));
+      assert(isMatch('ba', '+(@(a)|*(b))'));
+      assert(isMatch('aabb', '+(@(a)|*(b))'));
+      assert(isMatch('bbb', '+(@(a)|*(b))'));
+      assert(!isMatch('x', '+(@(a)|*(b))'));
+    });
+
+    it('should combine plain single-character branches with *(...) branches', () => {
+      assert.strictEqual(makeRe('+(a|*(b))').source, '^(?:(?=.)[ab]*)$');
+      assert.strictEqual(makeRe('+(*(a)|c)').source, '^(?:(?=.)[ac]*)$');
+
+      assert(isMatch('ab', '+(a|*(b))'));
+      assert(isMatch('cc', '+(*(a)|c)'));
+      assert(!isMatch('d', '+(a|*(b))'));
+    });
+
+    it('should flatten repeated characters across branches', () => {
+      assert.strictEqual(makeRe('+(*(a)|*(a))').source, '^(?:(?=.)a*)$');
+      assert.strictEqual(makeRe('*(*(a)|*(b)|a)').source, '^(?:(?=.)[ab]*)$');
+
+      assert(isMatch('aaa', '+(*(a)|*(a))'));
+      assert(isMatch('ab', '*(*(a)|*(b)|a)'));
+      assert(!isMatch('b', '+(*(a)|*(a))'));
+    });
+
+    it('should keep surrounding context of nested extglobs', () => {
+      assert.strictEqual(makeRe('x+(*(a)|*(b))y').source, '^(?:x[ab]*y)$');
+
+      assert(isMatch('xy', 'x+(*(a)|*(b))y'));
+      assert(isMatch('xay', 'x+(*(a)|*(b))y'));
+      assert(isMatch('xby', 'x+(*(a)|*(b))y'));
+      assert(isMatch('xaby', 'x+(*(a)|*(b))y'));
+      assert(isMatch('xaay', 'x+(*(a)|*(b))y'));
+      assert(!isMatch('xba', 'x+(*(a)|*(b))y'));
+      assert(!isMatch('y', 'x+(*(a)|*(b))y'));
+      assert(!isMatch('xcy', 'x+(*(a)|*(b))y'));
+
+      assert.strictEqual(makeRe('pre*(*(a)|*(b))post').source, '^(?:pre[ab]*post)$');
+      assert(isMatch('preabpost', 'pre*(*(a)|*(b))post'));
+      assert(isMatch('prepost', 'pre*(*(a)|*(b))post'));
+      assert(!isMatch('preacpost', 'pre*(*(a)|*(b))post'));
+
+      assert.strictEqual(makeRe('foo/+(*(a)|*(b))/bar').source, '^(?:foo\\/[ab]*\\/bar)$');
+      assert(isMatch('foo/ab/bar', 'foo/+(*(a)|*(b))/bar'));
+      assert(!isMatch('foo/ac/bar', 'foo/+(*(a)|*(b))/bar'));
+    });
+
+    it('should agree with isMatch, makeRe, and the returned matcher', () => {
+      const isMatchFn = require('..')('+(*(a)|*(b))');
+      const re = makeRe('+(*(a)|*(b))');
+
+      for (const input of ['a', 'b', 'ab', 'ba', 'aabb']) {
+        assert(isMatch(input, '+(*(a)|*(b))'));
+        assert(isMatchFn(input));
+        assert(re.test(input));
+      }
+
+      for (const input of ['', 'c', 'abc', 'aba ']) {
+        assert(!isMatch(input, '+(*(a)|*(b))'));
+        assert(!isMatchFn(input));
+        assert(!re.test(input));
+      }
+    });
+
+    it('should preserve capture groups in the rewritten output', () => {
+      assert.strictEqual(
+        makeRe('+(*(a)|*(b))', { capture: true }).source,
+        '^(?:(?=.)([ab]*))$'
+      );
+
+      const re = makeRe('+(*(a)|*(b))', { capture: true });
+      assert.deepStrictEqual(Array.from(re.exec('aabb')), ['aabb', 'aabb']);
+    });
+  });
+
   it('should correctly match empty parens', () => {
     assert(!isMatch('def', '@()ef'));
     assert(isMatch('ef', '@()ef'));

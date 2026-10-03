@@ -2600,5 +2600,93 @@ describe('extglobs (bash)', () => {
   it('"zz" should not match "(a+|b)*"', () => {
     assert(!isMatch('zz', '(a+|b)*', { bash: true, windows: true }));
   });
+
+  it('"a" should match nested repeated extglob "+(*(a)|*(b))"', () => {
+    assert(isMatch('a', '+(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"b" should match nested repeated extglob "+(*(a)|*(b))"', () => {
+    assert(isMatch('b', '+(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"ab" should match nested repeated extglob "+(*(a)|*(b))"', () => {
+    assert(isMatch('ab', '+(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"ba" should match nested repeated extglob "+(*(a)|*(b))"', () => {
+    assert(isMatch('ba', '+(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"aabb" should match nested repeated extglob "+(*(a)|*(b))"', () => {
+    assert(isMatch('aabb', '+(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"bbb" should match nested repeated extglob "+(*(a)|*(b))"', () => {
+    assert(isMatch('bbb', '+(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"c" should not match nested repeated extglob "+(*(a)|*(b))"', () => {
+    assert(!isMatch('c', '+(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"abc" should not match nested repeated extglob "+(*(a)|*(b))"', () => {
+    assert(!isMatch('abc', '+(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"c" should match nested repeated extglob "*(*(a)|c)"', () => {
+    assert(isMatch('c', '*(*(a)|c)', { bash: true, windows: true }));
+  });
+
+  it('"ac" should match nested repeated extglob "*(*(a)|c)"', () => {
+    assert(isMatch('ac', '*(*(a)|c)', { bash: true, windows: true }));
+  });
+
+  it('"cca" should match nested repeated extglob "*(*(a)|c)"', () => {
+    assert(isMatch('cca', '*(*(a)|c)', { bash: true, windows: true }));
+  });
+
+  it('"b" should not match nested repeated extglob "*(*(a)|c)"', () => {
+    assert(!isMatch('b', '*(*(a)|c)', { bash: true, windows: true }));
+  });
+
+  it('"abc" should match nested repeated extglob "+(*(a)|*(b)|*(c))"', () => {
+    assert(isMatch('abc', '+(*(a)|*(b)|*(c))', { bash: true, windows: true }));
+  });
+
+  it('"cabbc" should match nested repeated extglob "+(*(a)|*(b)|*(c))"', () => {
+    assert(isMatch('cabbc', '+(*(a)|*(b)|*(c))', { bash: true, windows: true }));
+  });
+
+  it('"abd" should not match nested repeated extglob "+(*(a)|*(b)|*(c))"', () => {
+    assert(!isMatch('abd', '+(*(a)|*(b)|*(c))', { bash: true, windows: true }));
+  });
+
+  it('"abba" should match nested star extglob "*(*(a)|*(b))"', () => {
+    assert(isMatch('abba', '*(*(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"bbb" should match nested extglob "+(@(a)|*(b))"', () => {
+    assert(isMatch('bbb', '+(@(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"x" should not match nested extglob "+(@(a)|*(b))"', () => {
+    assert(!isMatch('x', '+(@(a)|*(b))', { bash: true, windows: true }));
+  });
+
+  it('"xy" should match nested extglob "x+(*(a)|*(b))y"', () => {
+    assert(isMatch('xy', 'x+(*(a)|*(b))y', { bash: true, windows: true }));
+  });
+
+  it('"xaby" should match nested extglob "x+(*(a)|*(b))y"', () => {
+    assert(isMatch('xaby', 'x+(*(a)|*(b))y', { bash: true, windows: true }));
+  });
+
+  it('"xba" should not match nested extglob "x+(*(a)|*(b))y"', () => {
+    assert(!isMatch('xba', 'x+(*(a)|*(b))y', { bash: true, windows: true }));
+  });
+
+  it('"xcy" should not match nested extglob "x+(*(a)|*(b))y"', () => {
+    assert(!isMatch('xcy', 'x+(*(a)|*(b))y', { bash: true, windows: true }));
+  });
 });
 
